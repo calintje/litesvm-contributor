@@ -40,12 +40,12 @@ impl CompiledInstruction {
 
     #[napi]
     pub fn accounts(&self) -> Uint8Array {
-        Uint8Array::new(self.0.accounts.clone())
+		Uint8Array::with_data_copied(self.0.accounts.as_slice())
     }
 
     #[napi]
     pub fn data(&self) -> Uint8Array {
-        Uint8Array::new(self.0.data.clone())
+		Uint8Array::with_data_copied(self.0.data.as_slice())
     }
 }
 
@@ -83,7 +83,7 @@ impl TransactionReturnData {
 
     #[napi]
     pub fn data(&self) -> Uint8Array {
-        Uint8Array::new(self.0.data.clone())
+		Uint8Array::with_data_copied(self.0.data.as_slice())
     }
 }
 
