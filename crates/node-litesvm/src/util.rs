@@ -32,11 +32,15 @@ impl FpuEnvGuard {
 impl Drop for FpuEnvGuard {
     fn drop(&mut self) {
         unsafe {
-            // Restore MXCSR (mask out exception flags 0..5) and clear x87 exceptions, then restore x87 control word.
-            let mut mxcsr_clean = self.mxcsr & !0x3F;
-            core::arch::asm!("ldmxcsr [{ptr}]", ptr = in(reg) &mxcsr_clean, options(nostack, preserves_flags));
+            // Hard-reset FP environment to defaults to avoid propagating any state into V8:
+            // - MXCSR default mask: 0x1F80 (all exceptions masked, nearest rounding, flush modes off)
+            // - x87 control word default: 0x037F (all exceptions masked, nearest rounding)
+            let mxcsr_default: u32 = 0x1F80;
+            core::arch::asm!("ldmxcsr [{ptr}]", ptr = in(reg) &mxcsr_default, options(nostack, preserves_flags));
+            // Clear any pending x87 exceptions then set default control word
             core::arch::asm!("fnclex", options(nostack, preserves_flags));
-            core::arch::asm!("fldcw [{cw}]", cw = in(reg) &self.x87_cw, options(nostack, preserves_flags));
+            let x87_default: u16 = 0x037F;
+            core::arch::asm!("fldcw [{cw}]", cw = in(reg) &x87_default, options(nostack, preserves_flags));
         }
     }
 }
