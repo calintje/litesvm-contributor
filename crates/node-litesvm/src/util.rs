@@ -5,35 +5,37 @@ pub(crate) fn convert_pubkey(address: &[u8]) -> Pubkey {
 }
 
 // Guards and restores the thread's floating-point environment.
-// On Linux x86_64 this captures both x87 and SSE (MXCSR) state via libc's fenv APIs.
+// On x86_64 this captures both x87 control word and SSE (MXCSR) state without relying on libc fenv symbols.
 // On other architectures it is a no-op.
 #[cfg(target_arch = "x86_64")]
 pub(crate) struct FpuEnvGuard {
-    saved: libc::fenv_t,
+	mxcsr: u32,
+	x87_cw: u16,
 }
 
 #[cfg(target_arch = "x86_64")]
 impl FpuEnvGuard {
     pub fn new() -> Self {
-        unsafe {
-            let mut env = std::mem::MaybeUninit::<libc::fenv_t>::uninit();
-            // Best effort: ignore return codes; restoring on Drop is still safe.
-            let _ = libc::fegetenv(env.as_mut_ptr());
-            Self {
-                saved: env.assume_init(),
-            }
-        }
+		unsafe {
+			// Save SSE control/status register (MXCSR)
+			let mxcsr = core::arch::x86_64::_mm_getcsr();
+			// Save x87 control word via fnstcw
+			let mut x87_cw: u16 = 0;
+			core::arch::asm!("fnstcw [{cw}]", cw = in(reg) &mut x87_cw, options(nostack, preserves_flags));
+			Self { mxcsr, x87_cw }
+		}
     }
 }
 
 #[cfg(target_arch = "x86_64")]
 impl Drop for FpuEnvGuard {
     fn drop(&mut self) {
-        unsafe {
-            // Restore the saved environment and clear any pending exceptions.
-            let _ = libc::fesetenv(&mut self.saved as *mut libc::fenv_t);
-            let _ = libc::feclearexcept(libc::FE_ALL_EXCEPT);
-        }
+		unsafe {
+			// Restore x87 control word and MXCSR, then clear any pending exceptions.
+			core::arch::asm!("fldcw [{cw}]", cw = in(reg) &self.x87_cw, options(nostack, preserves_flags));
+			core::arch::x86_64::_mm_setcsr(self.mxcsr);
+			let _ = libc::feclearexcept(libc::FE_ALL_EXCEPT);
+		}
     }
 }
 
