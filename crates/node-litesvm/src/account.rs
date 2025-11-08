@@ -41,12 +41,12 @@ impl Account {
 
     #[napi]
     pub fn data(&self) -> Uint8Array {
-        Uint8Array::new(self.0.data.clone())
+        Uint8Array::with_data_copied(self.0.data.as_slice())
     }
 
     #[napi]
     pub fn owner(&self) -> Uint8Array {
-        Uint8Array::new(self.0.owner.to_bytes().to_vec())
+        Uint8Array::with_data_copied(self.0.owner.to_bytes())
     }
 
     #[napi]
