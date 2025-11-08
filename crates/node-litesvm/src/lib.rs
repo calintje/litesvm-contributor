@@ -215,6 +215,7 @@ impl LiteSvm {
     #[napi(ts_return_type = "TransactionMetadata | FailedTransactionMetadata | null")]
     /// Airdrops the account with the lamports specified.
     pub fn airdrop(&mut self, pubkey: &[u8], lamports: BigInt) -> Result<TransactionResult> {
+        let _fpu_guard = crate::util::FpuEnvGuard::new();
         Ok(convert_transaction_result(self.0.airdrop(
             &convert_pubkey(pubkey),
             bigint_to_u64(&lamports)?,
@@ -249,6 +250,7 @@ impl LiteSvm {
 
     #[napi(ts_return_type = "TransactionMetadata | FailedTransactionMetadata")]
     pub fn send_legacy_transaction(&mut self, tx_bytes: &[u8]) -> TransactionResult {
+        let _fpu_guard = crate::util::FpuEnvGuard::new();
         let tx: Transaction = deserialize(tx_bytes).unwrap();
         let res = self.0.send_transaction(tx);
         convert_transaction_result(res)
@@ -256,6 +258,7 @@ impl LiteSvm {
 
     #[napi(ts_return_type = "TransactionMetadata | FailedTransactionMetadata")]
     pub fn send_versioned_transaction(&mut self, tx_bytes: &[u8]) -> TransactionResult {
+        let _fpu_guard = crate::util::FpuEnvGuard::new();
         let tx: VersionedTransaction = deserialize(tx_bytes).unwrap();
         let res = self.0.send_transaction(tx);
         convert_transaction_result(res)
@@ -263,6 +266,7 @@ impl LiteSvm {
 
     #[napi(ts_return_type = "SimulatedTransactionInfo | FailedTransactionMetadata")]
     pub fn simulate_legacy_transaction(&mut self, tx_bytes: &[u8]) -> SimulateResult {
+        let _fpu_guard = crate::util::FpuEnvGuard::new();
         let tx: Transaction = deserialize(tx_bytes).unwrap();
         let res = self.0.simulate_transaction(tx);
         convert_sim_result(res)
@@ -270,6 +274,7 @@ impl LiteSvm {
 
     #[napi(ts_return_type = "SimulatedTransactionInfo | FailedTransactionMetadata")]
     pub fn simulate_versioned_transaction(&mut self, tx_bytes: &[u8]) -> SimulateResult {
+        let _fpu_guard = crate::util::FpuEnvGuard::new();
         let tx: VersionedTransaction = deserialize(tx_bytes).unwrap();
         let res = self.0.simulate_transaction(tx);
         convert_sim_result(res)
