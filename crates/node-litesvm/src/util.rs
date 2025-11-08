@@ -9,33 +9,35 @@ pub(crate) fn convert_pubkey(address: &[u8]) -> Pubkey {
 // On other architectures it is a no-op.
 #[cfg(target_arch = "x86_64")]
 pub(crate) struct FpuEnvGuard {
-	mxcsr: u32,
-	x87_cw: u16,
+    mxcsr: u32,
+    x87_cw: u16,
 }
 
 #[cfg(target_arch = "x86_64")]
 impl FpuEnvGuard {
     pub fn new() -> Self {
-		unsafe {
-			// Save SSE control/status register (MXCSR)
-			let mxcsr = core::arch::x86_64::_mm_getcsr();
-			// Save x87 control word via fnstcw
-			let mut x87_cw: u16 = 0;
-			core::arch::asm!("fnstcw [{cw}]", cw = in(reg) &mut x87_cw, options(nostack, preserves_flags));
-			Self { mxcsr, x87_cw }
-		}
+        unsafe {
+            // Save SSE control/status register (MXCSR)
+            let mut mxcsr: u32 = 0;
+            core::arch::asm!("stmxcsr [{ptr}]", ptr = in(reg) &mut mxcsr, options(nostack, preserves_flags));
+            // Save x87 control word via fnstcw
+            let mut x87_cw: u16 = 0;
+            core::arch::asm!("fnstcw [{cw}]", cw = in(reg) &mut x87_cw, options(nostack, preserves_flags));
+            Self { mxcsr, x87_cw }
+        }
     }
 }
 
 #[cfg(target_arch = "x86_64")]
 impl Drop for FpuEnvGuard {
     fn drop(&mut self) {
-		unsafe {
-			// Restore x87 control word and MXCSR, then clear any pending exceptions.
-			core::arch::asm!("fldcw [{cw}]", cw = in(reg) &self.x87_cw, options(nostack, preserves_flags));
-			core::arch::x86_64::_mm_setcsr(self.mxcsr);
-			let _ = libc::feclearexcept(libc::FE_ALL_EXCEPT);
-		}
+        unsafe {
+            // Restore MXCSR (mask out exception flags 0..5) and clear x87 exceptions, then restore x87 control word.
+            let mut mxcsr_clean = self.mxcsr & !0x3F;
+            core::arch::asm!("ldmxcsr [{ptr}]", ptr = in(reg) &mxcsr_clean, options(nostack, preserves_flags));
+            core::arch::asm!("fnclex", options(nostack, preserves_flags));
+            core::arch::asm!("fldcw [{cw}]", cw = in(reg) &self.x87_cw, options(nostack, preserves_flags));
+        }
     }
 }
 
